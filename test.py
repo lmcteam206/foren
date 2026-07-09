@@ -500,13 +500,14 @@ class PluginStoreWindow(QDialog):
         layout.addWidget(scroll)
 
     def fetch_remote_registry(self):
-        """Downloads the central plugins database file on the fly."""
+        """Downloads the central plugins database file on the fly with custom browser headers."""
         try:
-            with urllib.request.urlopen(self.registry_url) as response:
+            # Set up a generic browser header layout
+            req = urllib.request.Request(self.registry_url, headers={'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)'})
+            with urllib.request.urlopen(req) as response:
                 self.remote_plugins = json.loads(response.read().decode())
         except Exception as e:
             print(f"[-] Failed to fetch remote plugins manifest index: {str(e)}")
-            # Fallback placeholder card if network or repository structure resolution fails
             self.remote_plugins = []
 
     def populate_marketplace(self):
