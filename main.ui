@@ -103,11 +103,13 @@
     <property name="title">
      <string>settings</string>
     </property>
+    <addaction name="actionsettings"/>
    </widget>
    <widget class="QMenu" name="plugins_btn">
     <property name="title">
      <string>plugins</string>
     </property>
+    <addaction name="actionplugins"/>
    </widget>
    <addaction name="files_nigga"/>
    <addaction name="settings_btn"/>
@@ -122,6 +124,16 @@
   <action name="actionopen_folder">
    <property name="text">
     <string>open folder</string>
+   </property>
+  </action>
+  <action name="actionplugins">
+   <property name="text">
+    <string>see store</string>
+   </property>
+  </action>
+  <action name="actionsettings">
+   <property name="text">
+    <string>edit plugins</string>
    </property>
   </action>
  </widget>

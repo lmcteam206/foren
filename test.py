@@ -1,6 +1,11 @@
 import sys
 from PyQt6 import uic
 from PyQt6.QtWidgets import QApplication, QDialog, QMainWindow, QFileDialog
+import json
+import urllib.request
+import importlib.util
+from PyQt6.QtWidgets import QDialog, QVBoxLayout, QHBoxLayout, QLabel, QPushButton, QScrollArea, QWidget, QCheckBox
+from PyQt6.QtCore import Qt
 import os
 from datetime import datetime
 from pypdf import PdfReader
@@ -27,10 +32,60 @@ class MainWindowWorkspace(QMainWindow):
         else:
             print("[-] Warning: Could not find the menu Action object name!")
             print("Check the 'Action Editor' panel in Designer to see what it named your menu item.")
-        
+        # 4. Connect Plugin & Settings Menu items
+        if hasattr(self, "actionplugins"):
+            self.actionplugins.triggered.connect(self.open_plugin_store)
+        elif hasattr(self, "actionPlugins"):
+            self.actionPlugins.triggered.connect(self.open_plugin_store)
+            
+        if hasattr(self, "actionsettings"):
+            self.actionsettings.triggered.connect(self.open_plugin_settings)
+        elif hasattr(self, "actionSettings"):
+            self.actionSettings.triggered.connect(self.open_plugin_settings)
+
+        # Create local storage directory for downloads if it doesn't exist
+        os.makedirs("plugins", exist_ok=True)
+        self.load_enabled_plugins()
         # Connect the select button
         self.btn_select.clicked.connect(self.display_file_metadata)
+    def open_plugin_store(self):
+        self.store_win = PluginStoreWindow(self)
+        self.store_win.exec()
 
+    def open_plugin_settings(self):
+        self.settings_win = PluginSettingsWindow(self)
+        self.settings_win.exec()
+
+    def load_enabled_plugins(self):
+        """Discovers downloaded plugins and executes them if enabled inside settings."""
+        config_path = os.path.join("plugins", "config.json")
+        if not os.path.exists(config_path):
+            return
+            
+        with open(config_path, "r") as f:
+            config = json.load(f)
+
+        # Dynamically inject actions into your workspace top-bar menu for enabled mods
+        for plugin_name, data in config.items():
+            if data.get("enabled", False):
+                script_path = os.path.join("plugins", plugin_name, f"{plugin_name}.py")
+                if os.path.exists(script_path):
+                    # Create an entry option on your menu bar for this custom tool
+                    menu = self.menuBar().addMenu(data.get("title", plugin_name))
+                    action = menu.addAction("Launch Core Utility")
+                    action.triggered.connect(lambda checked, p=script_path: self.run_plugin_script(p))
+
+    def run_plugin_script(self, script_path):
+        """Loads and runs the isolated custom .py plugin file cleanly on-the-fly."""
+        try:
+            spec = importlib.util.spec_from_file_location("plugin_mod", script_path)
+            module = importlib.util.module_from_spec(spec)
+            spec.loader.exec_module(module)
+            # Looks inside your plugin .py file for a structural function named main_run()
+            if hasattr(module, "main_run"):
+                module.main_run(self)
+        except Exception as e:
+            print(f"[-] Failed executing modular extension: {str(e)}")
     def choose_directory(self):
         # Open the Windows directory picker dialog
         folder_selected = QFileDialog.getExistingDirectory(self, "Select Target Folder")
@@ -349,7 +404,128 @@ class WelcomeSplashDialog(QDialog):
         # 3. Close the welcome screen dialog automatically
         self.accept() 
 
+class PluginStoreWindow(QDialog):
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setWindowTitle("Forensic Plugin Registry Store")
+        self.resize(550, 450)
+        self.setStyleSheet("background-color: #1e1e1e; color: #ffffff;")
+        
+        layout = QVBoxLayout(self)
+        label = QLabel("### Available Community Plugins Marketplace ###")
+        label.setTextFormat(Qt.TextFormat.MarkdownText)
+        layout.addWidget(label)
 
+        # Scroll window layer for card management
+        scroll = QScrollArea()
+        scroll.setWidgetResizable(True)
+        scroll_content = QWidget()
+        self.scroll_layout = QVBoxLayout(scroll_content)
+        
+        # --- CREATOR REGISTRY (Your GitHub Database Configuration Mapping) ---
+        # Put your GitHub Raw file target paths inside these dictionary arrays
+        self.remote_plugins = [
+            {
+                "id": "hash_verifier",
+                "title": "SHA256 Integrity Engine",
+                "desc": "Computes data fingerprints to protect asset chain-of-custody tracking.",
+                "files": "hash_verifier.py, hash_verifier.ui",
+                "py_url": "https://raw.githubusercontent.com/YOUR_USER/YOUR_REPO/main/plugins/hash_verifier/hash_verifier.py",
+                "ui_url": "https://raw.githubusercontent.com/YOUR_USER/YOUR_REPO/main/plugins/hash_verifier/hash_verifier.ui"
+            }
+        ]
+
+        self.populate_marketplace()
+        scroll.setWidget(scroll_content)
+        layout.addWidget(scroll)
+
+    def populate_marketplace(self):
+        for item in self.remote_plugins:
+            card = QWidget()
+            card.setStyleSheet("background-color: #2d2d2d; border-radius: 6px; padding: 10px; margin-bottom: 5px;")
+            card_layout = QVBoxLayout(card)
+
+            title = QLabel(f"<b>{item['title']}</b>")
+            desc = QLabel(item['desc'])
+            desc.setWordWrap(True)
+            files = QLabel(f"<font color='#888888'>Assets: {item['files']}</font>")
+            
+            btn_install = QPushButton("Install Plugin Package")
+            btn_install.setStyleSheet("background-color: #007acc; font-weight: bold; padding: 5px;")
+            btn_install.clicked.connect(lambda checked, i=item: self.download_package(i))
+
+            card_layout.addWidget(title)
+            card_layout.addWidget(desc)
+            card_layout.addWidget(files)
+            card_layout.addWidget(btn_install)
+            self.scroll_layout.addWidget(card)
+
+    def download_package(self, item):
+        try:
+            dest_dir = os.path.join("plugins", item["id"])
+            os.makedirs(dest_dir, exist_ok=True)
+
+            # Pull scripts directly down from your specified GitHub raw architecture links
+            urllib.request.urlretrieve(item["py_url"], os.path.join(dest_dir, f"{item['id']}.py"))
+            urllib.request.urlretrieve(item["ui_url"], os.path.join(dest_dir, f"{item['id']}.ui"))
+
+            # Update master registry layout database tracking file
+            config_path = os.path.join("plugins", "config.json")
+            config = {}
+            if os.path.exists(config_path):
+                with open(config_path, "r") as f:
+                    config = json.load(f)
+
+            config[item["id"]] = {"title": item["title"], "enabled": True}
+            with open(config_path, "w") as f:
+                json.dump(config, f, indent=4)
+
+            QPushButton(self.sender()).setText("✓ Installed Successfully")
+        except Exception as e:
+            QPushButton(self.sender()).setText(f"Error: Unable to Pull Build")
+
+
+class PluginSettingsWindow(QDialog):
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setWindowTitle("Plugin Configuration Manager")
+        self.resize(400, 300)
+        self.setStyleSheet("background-color: #1e1e1e; color: #ffffff;")
+        
+        self.layout = QVBoxLayout(self)
+        self.layout.addWidget(QLabel("<h3>Enable/Disable Installed Systems</h3>"))
+        
+        self.config_path = os.path.join("plugins", "config.json")
+        self.check_boxes = {}
+        
+        self.load_settings_list()
+        
+        btn_save = QPushButton("Save Settings & Apply Configurations")
+        btn_save.setStyleSheet("background-color: #28a745; font-weight: bold; padding: 6px;")
+        btn_save.clicked.connect(self.save_configurations)
+        self.layout.addWidget(btn_save)
+
+    def load_settings_list(self):
+        if not os.path.exists(self.config_path):
+            self.layout.addWidget(QLabel("[No external plugins downloaded yet]"))
+            return
+
+        with open(self.config_path, "r") as f:
+            self.config = json.load(f)
+
+        for plugin_id, data in self.config.items():
+            cb = QCheckBox(data.get("title", plugin_id))
+            cb.setChecked(data.get("enabled", False))
+            self.layout.addWidget(cb)
+            self.check_boxes[plugin_id] = cb
+
+    def save_configurations(self):
+        if os.path.exists(self.config_path):
+            for plugin_id, cb in self.check_boxes.items():
+                self.config[plugin_id]["enabled"] = cb.isChecked()
+            with open(self.config_path, "w") as f:
+                json.dump(self.config, f, indent=4)
+        self.accept()
 if __name__ == "__main__":
     app = QApplication(sys.argv)
     
