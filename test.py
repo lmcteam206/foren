@@ -16,12 +16,15 @@ from mutagen.mp3 import MP3
 from mutagen.mp4 import MP4
 from PyQt6.QtWidgets import QProgressBar
 
-# Force the script to look at its own source directory for storage
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 CURRENT_VERSION = "1.0.0"  # Increment this whenever you push a new release executable
 
-# Update your folder creation line to look like this:
-os.makedirs(os.path.join(BASE_DIR, "plugins"), exist_ok=True)
+# --- NEW: ROUTE PLUGINS TO WINDOWS HIDDEN APPDATA ---
+# This targets: C:\Users\<Username>\AppData\Roaming\ForensicWorkspace
+APPDATA_DIR = os.path.join(os.environ.get("APPDATA", os.path.expanduser("~")), "ForensicWorkspace")
+
+# Create the hidden AppData directory structure automatically on launch
+os.makedirs(os.path.join(APPDATA_DIR, "plugins"), exist_ok=True)
 
 class MainWindowWorkspace(QMainWindow):
     def __init__(self):
@@ -33,8 +36,10 @@ class MainWindowWorkspace(QMainWindow):
         # --- FIX: Dynamically connect buttons and apply settings ---
         self.connect_ui_signals()
         
-        # Create local storage directory for downloads if it doesn't exist
+        # Change this line:
         os.makedirs("plugins", exist_ok=True)
+        # To this:
+        os.makedirs(os.path.join(APPDATA_DIR, "plugins"), exist_ok=True)
         self.load_enabled_plugins()
 
     def connect_ui_signals(self):
@@ -140,7 +145,8 @@ class MainWindowWorkspace(QMainWindow):
 
     def load_enabled_plugins(self):
         """Discovers downloaded plugins and executes them if enabled inside settings."""
-        config_path = os.path.join("plugins", "config.json")
+        # Update this path to search AppData
+        config_path = os.path.join(APPDATA_DIR, "plugins", "config.json")
         if not os.path.exists(config_path):
             return
             
@@ -149,7 +155,8 @@ class MainWindowWorkspace(QMainWindow):
 
         for plugin_name, data in config.items():
             if data.get("enabled", False):
-                script_path = os.path.join("plugins", plugin_name, f"{plugin_name}.py")
+                # Update this path to execute out of AppData
+                script_path = os.path.join(APPDATA_DIR, "plugins", plugin_name, f"{plugin_name}.py")
                 if os.path.exists(script_path):
                     menu = self.menuBar().addMenu(data.get("title", plugin_name))
                     action = menu.addAction("Launch Core Utility")
@@ -494,7 +501,8 @@ class PluginStoreWindow(QDialog):
             progress_bar.setVisible(True)
             progress_bar.setValue(0)
             
-            dest_dir = os.path.join("plugins", item["id"])
+            # Update this path to download straight into AppData
+            dest_dir = os.path.join(APPDATA_DIR, "plugins", item["id"])
             os.makedirs(dest_dir, exist_ok=True)
             total_files = len(item["files"])
             
@@ -509,10 +517,8 @@ class PluginStoreWindow(QDialog):
                 progress_bar.setFormat(f"Downloaded {filename} ({percentage}%)")
                 QApplication.processEvents()
 
-            dest_dir = os.path.join(BASE_DIR, "plugins", item["id"])
-            os.makedirs(dest_dir, exist_ok=True)
-
-            config_path = os.path.join(BASE_DIR, "plugins", "config.json")
+            # Update your config path tracking variable to AppData as well
+            config_path = os.path.join(APPDATA_DIR, "plugins", "config.json")
             config = {}
             if os.path.exists(config_path):
                 with open(config_path, "r") as f:
@@ -539,7 +545,8 @@ class PluginSettingsWindow(QDialog):
         self.layout = QVBoxLayout(self)
         self.layout.addWidget(QLabel("<h3>Enable/Disable Installed Systems</h3>"))
         
-        self.config_path = os.path.join("plugins", "config.json")
+        # Update your config verification target variable here
+        self.config_path = os.path.join(APPDATA_DIR, "plugins", "config.json")
         self.check_boxes = {}
         
         self.load_settings_list()
