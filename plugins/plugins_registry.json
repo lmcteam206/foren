@@ -1,8 +1,12 @@
 [
     {
         "id": "calculator",
-        "title": "basic Calculator",
+        "title": "Basic Calculator",
         "desc": "A lightweight standalone calculator utility integrated directly into the workspace layout.",
+        "version": "1.0.0",
+        "features": ["Basic mathematical computations", "Instant layout layout rendering"],
+        "cons": ["Does not support advanced scientific math notations"],
+        "warning": "Ensure clean numeric characters are provided to prevent script crash flags.",
         "files": [
             "calculator.py",
             "calculator.ui"
@@ -11,7 +15,11 @@
     {
         "id": "whatsapp_viewer",
         "title": "WhatsApp Database Parser",
-        "desc": "Parses Android or iOS WhatsApp databases and displays records back inside a clean bubble conversation format using the encryption key you have.",
+        "desc": "Parses Android or iOS WhatsApp databases and displays records back inside a clean bubble conversation format.",
+        "version": "1.0.2",
+        "features": ["Handles standard msgstore.db and ChatStorage.sqlite schemas", "Beautiful localized WhatsApp dark palette rendering window"],
+        "cons": ["Cannot bypass database encryptions without an external explicit 64-character hex key file link"],
+        "warning": "Tampering with a live device database directly without write protection rules voids evidence integrity chain standards.",
         "files": [
             "whatsapp_viewer.py"
         ]
@@ -20,6 +28,10 @@
         "id": "timeline_explorer",
         "title": "Windows Timeline Database Explorer",
         "desc": "Parses and traces system ActivitiesCache.db layers to show structural historic user interactions.",
+        "version": "1.0.1",
+        "features": ["Auto-locates current Windows user profile database directory structures", "Uses read-only file URI layers to bypass concurrent OS execution locks"],
+        "cons": ["Windows 11 modern builds have heavily deprecated database logging records out of this table layout"],
+        "warning": "Historical log tables maintain a rolling 30-day lifecycle limit buffer before system background workers purge old entries.",
         "files": [
             "timeline_explorer.py"
         ]

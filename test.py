@@ -4,7 +4,7 @@ from PyQt6.QtWidgets import QApplication, QDialog, QMainWindow, QFileDialog
 import json
 import urllib.request
 import importlib.util
-from PyQt6.QtWidgets import QDialog, QVBoxLayout, QHBoxLayout, QLabel, QPushButton, QScrollArea, QWidget, QCheckBox
+from PyQt6.QtWidgets import QDialog, QVBoxLayout, QHBoxLayout, QLabel, QPushButton, QScrollArea, QWidget, QCheckBox, QMessageBox
 from PyQt6.QtCore import Qt
 import os
 from datetime import datetime
@@ -18,54 +18,40 @@ from PyQt6.QtWidgets import QProgressBar
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 CURRENT_VERSION = "1.0.0"  # Increment this whenever you push a new release executable
+
 def resource_path(relative_path):
     """ Resolves absolute paths for resources, handles both standard python execution and PyInstaller --onefile mode. """
     try:
-        # PyInstaller creates a temporary folder and stores its path in sys._MEIPASS
         base_path = sys._MEIPASS
     except Exception:
         base_path = os.path.dirname(os.path.abspath(__file__))
     return os.path.join(base_path, relative_path)
-# --- NEW: ROUTE PLUGINS TO WINDOWS HIDDEN APPDATA ---
-# This targets: C:\Users\<Username>\AppData\Roaming\ForensicWorkspace
-APPDATA_DIR = os.path.join(os.environ.get("APPDATA", os.path.expanduser("~")), "ForensicWorkspace")
 
-# Create the hidden AppData directory structure automatically on launch
+# --- ROUTE PLUGINS TO WINDOWS HIDDEN APPDATA ---
+APPDATA_DIR = os.path.join(os.environ.get("APPDATA", os.path.expanduser("~")), "ForensicWorkspace")
 os.makedirs(os.path.join(APPDATA_DIR, "plugins"), exist_ok=True)
 
 class MainWindowWorkspace(QMainWindow):
     def __init__(self):
         super().__init__()
         uic.loadUi(resource_path("main.ui"), self)
-        
         self.current_folder_path = ""
-        
-        # --- FIX: Dynamically connect buttons and apply settings ---
         self.connect_ui_signals()
-        
-        # Change this line:
-        os.makedirs("plugins", exist_ok=True)
-        # To this:
         os.makedirs(os.path.join(APPDATA_DIR, "plugins"), exist_ok=True)
         self.load_enabled_plugins()
 
     def connect_ui_signals(self):
         """Initializes or restores button triggers cleanly after dynamic reloads."""
-        # Display version indicator string
         if hasattr(self, "lbl_version"):
             self.lbl_version.setText(f"App Version: {CURRENT_VERSION}")
 
-        # Directory explorer picker triggers
         if hasattr(self, "actionOpen_Folder"):
             self.actionOpen_Folder.triggered.connect(self.choose_directory)
         elif hasattr(self, "actionopen_folder"):
             self.actionopen_folder.triggered.connect(self.choose_directory)
         elif hasattr(self, "actionOpen"):
             self.actionOpen.triggered.connect(self.choose_directory)
-        else:
-            print("[-] Warning: Could not find the menu Action object name!")
 
-        # Connect Plugin & Settings Menu items
         if hasattr(self, "actionplugins"):
             self.actionplugins.triggered.connect(self.open_plugin_store)
         elif hasattr(self, "actionPlugins"):
@@ -76,7 +62,6 @@ class MainWindowWorkspace(QMainWindow):
         elif hasattr(self, "actionSettings"):
             self.actionSettings.triggered.connect(self.open_plugin_settings)
 
-        # Connect core utility interface buttons
         if hasattr(self, "btn_refresh_2"):
             self.btn_refresh_2.clicked.connect(self.refresh_workspace)
             
@@ -88,20 +73,12 @@ class MainWindowWorkspace(QMainWindow):
 
     def refresh_workspace(self):
         """Clears old menu instances and dynamically updates current directory logs without dropping styles."""
-        # 1. Clear any previously generated dynamic plugin menus
         menubar = self.menuBar()
         menubar.clear()
-        
-        # 2. Re-read UI native actions if Qt Designer drops them on clean clear routines
         uic.loadUi(resource_path("main.ui"), self)
-        
-        # 3. FIX: Re-bind all python signals to the brand new UI objects instantly
         self.connect_ui_signals()
-            
-        # 4. Reload dynamic plugin configurations cleanly on the fly
         self.load_enabled_plugins()
         
-        # 5. Refresh target folder files list if a directory tracking loop is active
         if self.current_folder_path:
             self.list_files.clear()
             try:
@@ -117,7 +94,6 @@ class MainWindowWorkspace(QMainWindow):
         """Fetches the version tag from GitHub and handles text/styles safely for both Buttons and Menu Actions."""
         target_btn = getattr(self, "btn_check_update_2", None)
         if not target_btn:
-            print("[-] Error: 'btn_check_update_2' not found on the window layout instance.")
             return
             
         url = "https://raw.githubusercontent.com/lmcteam206/foren/main/version.txt"
@@ -129,18 +105,15 @@ class MainWindowWorkspace(QMainWindow):
             if remote_version == CURRENT_VERSION:
                 status_text = f"✓ Latest Version ({CURRENT_VERSION})"
                 target_btn.setText(status_text)
-                if hasattr(target_btn, "setStyleSheet"):
-                    target_btn.setStyleSheet("background-color: #28a745; color: white; font-weight: bold; border-radius: 4px; padding: 5px;")
+                target_btn.setStyleSheet("background-color: #28a745; color: white; font-weight: bold; border-radius: 4px; padding: 5px;")
             else:
                 status_text = f"⚠ Update Available ({remote_version})"
                 target_btn.setText(status_text)
-                if hasattr(target_btn, "setStyleSheet"):
-                    target_btn.setStyleSheet("background-color: #d9534f; color: white; font-weight: bold; border-radius: 4px; padding: 5px;")
+                target_btn.setStyleSheet("background-color: #d9534f; color: white; font-weight: bold; border-radius: 4px; padding: 5px;")
                     
         except Exception as e:
-            target_btn.setText("Update Check Failed (404 / Timeout)")
-            if hasattr(target_btn, "setStyleSheet"):
-                target_btn.setStyleSheet("background-color: #ffc107; color: black; padding: 5px;")
+            target_btn.setText("Update Check Failed")
+            target_btn.setStyleSheet("background-color: #ffc107; color: black; padding: 5px;")
 
     def open_plugin_store(self):
         self.store_win = PluginStoreWindow(self)
@@ -152,7 +125,6 @@ class MainWindowWorkspace(QMainWindow):
 
     def load_enabled_plugins(self):
         """Discovers downloaded plugins and executes them if enabled inside settings."""
-        # Update this path to search AppData
         config_path = os.path.join(APPDATA_DIR, "plugins", "config.json")
         if not os.path.exists(config_path):
             return
@@ -162,7 +134,6 @@ class MainWindowWorkspace(QMainWindow):
 
         for plugin_name, data in config.items():
             if data.get("enabled", False):
-                # Update this path to execute out of AppData
                 script_path = os.path.join(APPDATA_DIR, "plugins", plugin_name, f"{plugin_name}.py")
                 if os.path.exists(script_path):
                     menu = self.menuBar().addMenu(data.get("title", plugin_name))
@@ -216,7 +187,6 @@ class MainWindowWorkspace(QMainWindow):
             except Exception:
                 return date_str
 
-        # PDF parsing block
         if file_name.lower().endswith('.pdf'):
             try:
                 reader = PdfReader(full_file_path)
@@ -256,7 +226,6 @@ class MainWindowWorkspace(QMainWindow):
             except Exception:
                 pass
 
-        # DOCX parsing block
         elif file_name.lower().endswith('.docx'):
             try:
                 doc = docx.Document(full_file_path)
@@ -278,91 +247,6 @@ class MainWindowWorkspace(QMainWindow):
             except Exception:
                 pass
 
-        # DOC legacy parsing block
-        elif file_name.lower().endswith('.doc'):
-            try:
-                with open(full_file_path, 'rb') as f:
-                    data = f.read()
-                strings = []
-                current_str = []
-                for char in data:
-                    if 32 <= char <= 126:
-                        current_str.append(chr(char))
-                    else:
-                        if len(current_str) >= 4:
-                            strings.append("".join(current_str))
-                        current_str = []
-                report = "=== LEGACY WORD (.DOC) RECONNAISSANCE ===\n\n"
-                report += f"File Name:        {file_name}\n"
-                report += "[*] Scraped Application Metadata Strings:\n"
-                metadata_keywords = ["Microsoft", "Word", "Normal.dotm", "Title", "Author", "Template"]
-                found_keywords = set()
-                for s in strings:
-                    for kw in metadata_keywords:
-                        if kw.lower() in s.lower() and len(s) < 100:
-                            found_keywords.add(s.strip())
-                for item in list(found_keywords)[:15]:
-                    report += f" -> {item}\n"
-                report += "\n[!] Note: Legacy .doc files require raw string mining. See full filesystem parameters below.\n"
-                report += "\n=========================================="
-                file_stats = os.stat(full_file_path)
-                report += f"\n\nFile Size: {file_stats.st_size} Bytes\n"
-                report += f"Created (C): {datetime.fromtimestamp(file_stats.st_ctime).strftime('%Y-%m-%d %H:%M:%S')}\n"
-                self.text_metadata.setText(report)
-                return
-            except Exception:
-                pass
-
-        # MP3 audio parsing block
-        elif file_name.lower().endswith('.mp3'):
-            try:
-                audio = MP3(full_file_path)
-                report = "=== INTERNAL AUDIO (.MP3) FORENSIC REPORT ===\n\n"
-                report += f"File Name:        {file_name}\n"
-                report += f"Duration:         {audio.info.length:.2f} seconds\n"
-                report += f"Bitrate:          {audio.info.bitrate // 1000} kbps\n"
-                report += f"Sample Rate:      {audio.info.sample_rate} Hz\n"
-                report += f"Channels:         {audio.info.channels}\n\n"
-                report += "--- Embedded ID3 Metadata Tags ---\n"
-                if audio.tags:
-                    for tag, value in audio.tags.items():
-                        tag_desc = {
-                            'TIT2': 'Title', 'TPE1': 'Lead Artist', 'TALB': 'Album',
-                            'TYER': 'Year', 'TDRC': 'Recording Date', 'COMM': 'Comments',
-                            'TCON': 'Genre', 'TCOM': 'Composer', 'TSSE': 'Encoder Settings'
-                        }.get(tag, tag)
-                        report += f"{tag_desc:<18}: {value}\n"
-                else:
-                    report += "[No embedded ID3 tags discovered]\n"
-                report += "\n============================================"
-                self.text_metadata.setText(report)
-                return
-            except Exception:
-                pass
-
-        # MP4 video parsing block
-        elif file_name.lower().endswith('.mp4'):
-            try:
-                video = MP4(full_file_path)
-                report = "=== INTERNAL VIDEO (.MP4) FORENSIC REPORT ===\n\n"
-                report += f"File Name:        {file_name}\n"
-                report += f"Duration:         {video.info.length:.2f} seconds\n"
-                report += f"Bitrate:          {video.info.bitrate // 1000 if video.info.bitrate else 0} kbps\n"
-                report += "\n--- Container Atom Tags ---\n"
-                if video.tags:
-                    for tag, value in video.tags.items():
-                        display_key = tag.lstrip('\xa9')
-                        display_key = {'nam': 'Title', 'ART': 'Artist', 'alb': 'Album', 'day': 'Creation Date/Year'}.get(display_key, display_key)
-                        report += f"{display_key:<18}: {value}\n"
-                else:
-                    report += "[No metadata atoms discovered inside container]\n"
-                report += "\n============================================"
-                self.text_metadata.setText(report)
-                return
-            except Exception:
-                pass
-
-        # Image EXIF/GPS parsing block
         elif file_name.lower().endswith(('.jpg', '.jpeg', '.png', '.tiff', '.webp')):
             try:
                 img = Image.open(full_file_path)
@@ -390,29 +274,19 @@ class MainWindowWorkspace(QMainWindow):
                             gps_val = gps_info[gps_id]
                             report += f"GPS_{str(gps_tag):<14}: {gps_val}\n"
                 else:
-                    report += "[No embedded EXIF metadata or GPS logs discovered in image dictionary]\n"
-                report += "\n============================================"
+                    report += "[No embedded EXIF metadata discovered]\n"
+                report += "\n===================================="
                 self.text_metadata.setText(report)
                 img.close()
                 return
             except Exception:
                 pass            
 
-        # Fallback filesystem metadata block
         try:
             file_stats = os.stat(full_file_path)
-            modified_time = datetime.fromtimestamp(file_stats.st_mtime).strftime('%Y-%m-%d %H:%M:%S')
-            accessed_time = datetime.fromtimestamp(file_stats.st_atime).strftime('%Y-%m-%d %H:%M:%S')
-            created_time  = datetime.fromtimestamp(file_stats.st_ctime).strftime('%Y-%m-%d %H:%M:%S')
-            
             report = f"=== SYSTEM FILE METADATA REPORT ===\n\n"
             report += f"File Name:     {file_name}\n"
-            report += f"Absolute Path: {full_file_path}\n"
-            report += f"File Size:     {file_stats.st_size} Bytes\n\n"
-            report += f"Modified (M):  {modified_time}\n"
-            report += f"Accessed (A):  {accessed_time}\n"
-            report += f"Created (C):   {created_time}\n"
-            report += f"\n================================="
+            report += f"File Size:     {file_stats.st_size} Bytes\n"
             self.text_metadata.setText(report)
         except Exception as e:
             self.text_metadata.setText(f"[-] Failed to extract any metadata targets: {str(e)}")
@@ -434,7 +308,7 @@ class PluginStoreWindow(QDialog):
     def __init__(self, parent=None):
         super().__init__(parent)
         self.setWindowTitle("Forensic Plugin Registry Store")
-        self.resize(550, 450)
+        self.resize(650, 550)
         self.setStyleSheet("background-color: #1e1e1e; color: #ffffff;")
   
         self.github_user = "lmcteam206"
@@ -451,6 +325,7 @@ class PluginStoreWindow(QDialog):
         scroll_content = QWidget()
         self.scroll_layout = QVBoxLayout(scroll_content)
         
+        self.local_config = self.load_local_config()
         self.remote_plugins = []
         self.fetch_remote_registry()
         self.populate_marketplace()
@@ -458,46 +333,100 @@ class PluginStoreWindow(QDialog):
         scroll.setWidget(scroll_content)
         layout.addWidget(scroll)
 
+    def load_local_config(self):
+        config_path = os.path.join(APPDATA_DIR, "plugins", "config.json")
+        if os.path.exists(config_path):
+            try:
+                with open(config_path, "r") as f:
+                    return json.load(f)
+            except Exception:
+                pass
+        return {}
+
     def fetch_remote_registry(self):
-        """Downloads the central plugins database file on the fly with custom browser headers."""
         try:
-            req = urllib.request.Request(self.registry_url, headers={'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)'})
+            req = urllib.request.Request(self.registry_url, headers={'User-Agent': 'Mozilla/5.0'})
             with urllib.request.urlopen(req) as response:
                 self.remote_plugins = json.loads(response.read().decode())
         except Exception as e:
-            print(f"[-] Failed to fetch remote plugins manifest index: {str(e)}")
+            print(f"[-] Failed to fetch remote registry: {str(e)}")
             self.remote_plugins = []
 
     def populate_marketplace(self):
         if not self.remote_plugins:
-            error_lbl = QLabel("<font color='#d9534f'>[-] Unable to load store catalog. Check connection or registry.json path.</font>")
+            error_lbl = QLabel("<font color='#d9534f'>[-] Unable to load store catalog.</font>")
             self.scroll_layout.addWidget(error_lbl)
             return
 
         for item in self.remote_plugins:
             card = QWidget()
-            card.setStyleSheet("background-color: #2d2d2d; border-radius: 6px; padding: 10px; margin-bottom: 5px;")
+            card.setStyleSheet("background-color: #2d2d2d; border-radius: 6px; padding: 12px; margin-bottom: 8px;")
             card_layout = QVBoxLayout(card)
 
-            title = QLabel(f"<b>{item['title']}</b>")
+            # Determine local version and status
+            plugin_id = item["id"]
+            remote_ver = item.get("version", "1.0.0")
+            local_plugin_data = self.local_config.get(plugin_id, {})
+            local_ver = local_plugin_data.get("version")
+            
+            status_text = f"Version: v{remote_ver}"
+            is_update = False
+            is_installed = False
+
+            if local_ver:
+                is_installed = True
+                if local_ver != remote_ver:
+                    status_text = f"Update Available! (Local: v{local_ver} ➔ Remote: v{remote_ver})"
+                    is_update = True
+                else:
+                    status_text = f"✓ Installed (v{local_ver})"
+
+            title_layout = QHBoxLayout()
+            title = QLabel(f"<span style='font-size: 14px; font-weight: bold;'>{item['title']}</span>")
+            version_lbl = QLabel(f"<span style='color: #888888;'>{status_text}</span>")
+            title_layout.addWidget(title)
+            title_layout.addStretch()
+            title_layout.addWidget(version_lbl)
+            card_layout.addLayout(title_layout)
+
             desc = QLabel(item['desc'])
             desc.setWordWrap(True)
+            card_layout.addWidget(desc)
             
-            files_str = ", ".join(item["files"])
-            files = QLabel(f"<font color='#888888'>Assets to fetch: {files_str}</font>")
+            # --- MAXIMUM HONESTY DISCLOSURE SECTION ---
+            features_text = "• " + "\n• ".join(item.get("features", ["General functionality layers"]))
+            cons_text = "• " + "\n• ".join(item.get("cons", ["None logged"]))
             
-            btn_install = QPushButton("Install Plugin Package")
-            btn_install.setStyleSheet("background-color: #007acc; font-weight: bold; padding: 5px;")
+            disclosure_lbl = QLabel(
+                f"<font color='#00a884'><b>Key Features:</b></font><br/>{features_text}<br/>"
+                f"<font color='#ffc107'><b>Limitations/Cons:</b></font><br/>{cons_text}"
+            )
+            disclosure_lbl.setWordWrap(True)
+            card_layout.addWidget(disclosure_lbl)
+
+            if "warning" in item and item["warning"]:
+                warn_lbl = QLabel(f"<font color='#d9534f'><b>⚠ FORENSIC WARNING:</b> {item['warning']}</font>")
+                warn_lbl.setWordWrap(True)
+                card_layout.addWidget(warn_lbl)
+
+            # --- DYNAMIC UPDATE / INSTALL BUTTON TRIGGER ---
+            btn_install = QPushButton()
+            if is_update:
+                btn_install.setText(f"Update Plugin to v{remote_ver}")
+                btn_install.setStyleSheet("background-color: #d9534f; color: white; font-weight: bold; padding: 6px;")
+            elif is_installed:
+                btn_install.setText("Reinstall Package")
+                btn_install.setStyleSheet("background-color: #555555; color: white; padding: 5px;")
+            else:
+                btn_install.setText("Install Plugin Package")
+                btn_install.setStyleSheet("background-color: #007acc; font-weight: bold; padding: 6px;")
             
             progress_bar = QProgressBar()
-            progress_bar.setStyleSheet("QProgressBar { background-color: #1e1e1e; border-radius: 4px; text-align: center; } QProgressBar::chunk { background-color: #28a745; }")
+            progress_bar.setStyleSheet("QProgressBar { background-color: #1e1e1e; text-align: center; } QProgressBar::chunk { background-color: #28a745; }")
             progress_bar.setVisible(False)
 
             btn_install.clicked.connect(lambda checked, i=item, btn=btn_install, pb=progress_bar: self.download_package(i, btn, pb))
 
-            card_layout.addWidget(title)
-            card_layout.addWidget(desc)
-            card_layout.addWidget(files)
             card_layout.addWidget(btn_install)
             card_layout.addWidget(progress_bar)
             self.scroll_layout.addWidget(card)
@@ -508,7 +437,6 @@ class PluginStoreWindow(QDialog):
             progress_bar.setVisible(True)
             progress_bar.setValue(0)
             
-            # Update this path to download straight into AppData
             dest_dir = os.path.join(APPDATA_DIR, "plugins", item["id"])
             os.makedirs(dest_dir, exist_ok=True)
             total_files = len(item["files"])
@@ -521,41 +449,42 @@ class PluginStoreWindow(QDialog):
                 
                 percentage = int((idx / total_files) * 100)
                 progress_bar.setValue(percentage)
-                progress_bar.setFormat(f"Downloaded {filename} ({percentage}%)")
                 QApplication.processEvents()
 
-            # Update your config path tracking variable to AppData as well
             config_path = os.path.join(APPDATA_DIR, "plugins", "config.json")
             config = {}
             if os.path.exists(config_path):
                 with open(config_path, "r") as f:
                     config = json.load(f)
 
-            config[item["id"]] = {"title": item["title"], "enabled": True}
+            # Store both title, version code, and enabled state locally
+            config[item["id"]] = {
+                "title": item["title"], 
+                "enabled": True,
+                "version": item.get("version", "1.0.0")
+            }
             with open(config_path, "w") as f:
                 json.dump(config, f, indent=4)
 
-            target_btn.setText("✓ Installed Successfully")
-            progress_bar.setFormat("Complete!")
+            target_btn.setText("✓ Complete (Restart App)")
+            target_btn.setStyleSheet("background-color: #28a745; color: white;")
         except Exception as e:
             target_btn.setEnabled(True)
-            target_btn.setText("Retry Installation")
-            progress_bar.setFormat(f"Extraction Failure: {str(e)}")
+            target_btn.setText("Retry Operation")
+            progress_bar.setFormat(f"Failure: {str(e)}")
 
 class PluginSettingsWindow(QDialog):
     def __init__(self, parent=None):
         super().__init__(parent)
         self.setWindowTitle("Plugin Configuration Manager")
-        self.resize(400, 300)
+        self.resize(400, 350)
         self.setStyleSheet("background-color: #1e1e1e; color: #ffffff;")
         
         self.layout = QVBoxLayout(self)
         self.layout.addWidget(QLabel("<h3>Enable/Disable Installed Systems</h3>"))
         
-        # Update your config verification target variable here
         self.config_path = os.path.join(APPDATA_DIR, "plugins", "config.json")
         self.check_boxes = {}
-        
         self.load_settings_list()
         
         btn_save = QPushButton("Save Settings & Apply Configurations")
@@ -572,7 +501,8 @@ class PluginSettingsWindow(QDialog):
             self.config = json.load(f)
 
         for plugin_id, data in self.config.items():
-            cb = QCheckBox(data.get("title", plugin_id))
+            version_str = f" (v{data['version']})" if "version" in data else ""
+            cb = QCheckBox(f"{data.get('title', plugin_id)}{version_str}")
             cb.setChecked(data.get("enabled", False))
             self.layout.addWidget(cb)
             self.check_boxes[plugin_id] = cb
