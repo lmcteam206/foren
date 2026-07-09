@@ -1,7 +1,7 @@
 [
     {
         "id": "calculator",
-        "title": "Forensic Calculator",
+        "title": "basic Calculator",
         "desc": "A lightweight standalone calculator utility integrated directly into the workspace layout.",
         "files": [
             "calculator.py",
@@ -11,9 +11,17 @@
     {
         "id": "whatsapp_viewer",
         "title": "WhatsApp Database Parser",
-        "desc": "Parses Android or iOS WhatsApp databases and displays records back inside a clean bubble conversation format.",
+        "desc": "Parses Android or iOS WhatsApp databases and displays records back inside a clean bubble conversation format using the encryption key you have.",
         "files": [
             "whatsapp_viewer.py"
+        ]
+    },
+    {
+        "id": "timeline_explorer",
+        "title": "Windows Timeline Database Explorer",
+        "desc": "Parses and traces system ActivitiesCache.db layers to show structural historic user interactions.",
+        "files": [
+            "timeline_explorer.py"
         ]
     }
 ]
