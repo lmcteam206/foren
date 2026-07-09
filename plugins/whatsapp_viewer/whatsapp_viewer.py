@@ -97,21 +97,17 @@ class WhatsAppViewerDialog(QDialog):
             self.db_conn = sqlite3.connect(file_path)
             cursor = self.db_conn.cursor()
             
-            # Query standard WhatsApp tables schema to see rows available
-            # Note: Android schema uses 'jid' or 'chat' tables, sorting conversations
             cursor.execute("SELECT name FROM sqlite_master WHERE type='table';")
             tables = [row[0] for row in cursor.fetchall()]
             
             self.list_chats.clear()
             self.chat_display.clear()
 
-            # Forensic Parsing Hook for Android/iOS variations
             if "chat" in tables and "message" in tables: # Modern Android Schema
                 self.parse_android_schema(cursor)
             elif "ZWACHATSESSION" in tables: # iOS Schema
                 self.parse_ios_schema(cursor)
             else:
-                # Generic fallback if schemas differ
                 self.lbl_status.setText("Unknown database layout structure.")
                 return
 
@@ -120,7 +116,6 @@ class WhatsAppViewerDialog(QDialog):
             self.lbl_status.setText(f"Error loading database: {str(e)}")
 
     def parse_android_schema(self, cursor):
-        # Fetches conversation strings and maps internally
         cursor.execute("""
             SELECT chat._id, chat.jid_row_id, jid.user 
             FROM chat 
@@ -171,7 +166,6 @@ class WhatsAppViewerDialog(QDialog):
                 from_me, text, timestamp = row
                 msg_class = "outgoing" if from_me == 1 else "incoming"
                 
-                # Format epoch timestamp nicely
                 time_str = ""
                 if timestamp:
                     try:
@@ -200,7 +194,6 @@ class WhatsAppViewerDialog(QDialog):
                 from_me, text, apple_time = row
                 msg_class = "outgoing" if from_me == 1 else "incoming"
                 
-                # iOS references timestamps from 2001-01-01 instead of 1970 standard epoch
                 time_str = ""
                 if apple_time:
                     try:
