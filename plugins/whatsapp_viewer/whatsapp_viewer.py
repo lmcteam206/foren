@@ -1,8 +1,9 @@
 import os
 import sqlite3
+from datetime import datetime
 from PyQt6.QtWidgets import (QDialog, QVBoxLayout, QHBoxLayout, QListWidget, 
                              QListWidgetItem, QTextBrowser, QLabel, QFileDialog, 
-                             QPushButton, QSplitter)
+                             QPushButton, QSplitter, QWidget)
 from PyQt6.QtCore import Qt
 from PyQt6.QtGui import QFont
 
