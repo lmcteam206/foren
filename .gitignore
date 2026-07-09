@@ -1,0 +1,33 @@
+# ====================================================================
+# PyInstaller & Compilation Artifacts (Ignore compiled binaries/folders)
+# ====================================================================
+/build/
+/dist/
+*.spec
+
+# ====================================================================
+# Python & Virtual Environments (Ignore heavy/temporary local dependencies)
+# ====================================================================
+__pycache__/
+*.py[cod]
+*$py.class
+.venv/
+venv/
+ENV/
+env/
+
+# ====================================================================
+# Visual Studio Code & Local IDE Settings
+# ====================================================================
+.vscode/
+.idea/
+*.swp
+*.log
+
+# ====================================================================
+# Local Test Cache (Don't sync temporary local testing configs)
+# ====================================================================
+# Since users download plugins straight to AppData, your local 
+# workplace folder shouldn't tracking your personal test run configs.
+/plugins/config.json
+/plugins/calculator/
