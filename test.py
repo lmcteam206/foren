@@ -18,7 +18,14 @@ from PyQt6.QtWidgets import QProgressBar
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 CURRENT_VERSION = "1.0.0"  # Increment this whenever you push a new release executable
-
+def resource_path(relative_path):
+    """ Resolves absolute paths for resources, handles both standard python execution and PyInstaller --onefile mode. """
+    try:
+        # PyInstaller creates a temporary folder and stores its path in sys._MEIPASS
+        base_path = sys._MEIPASS
+    except Exception:
+        base_path = os.path.dirname(os.path.abspath(__file__))
+    return os.path.join(base_path, relative_path)
 # --- NEW: ROUTE PLUGINS TO WINDOWS HIDDEN APPDATA ---
 # This targets: C:\Users\<Username>\AppData\Roaming\ForensicWorkspace
 APPDATA_DIR = os.path.join(os.environ.get("APPDATA", os.path.expanduser("~")), "ForensicWorkspace")
@@ -29,7 +36,7 @@ os.makedirs(os.path.join(APPDATA_DIR, "plugins"), exist_ok=True)
 class MainWindowWorkspace(QMainWindow):
     def __init__(self):
         super().__init__()
-        uic.loadUi("main.ui", self)
+        uic.loadUi(resource_path("main.ui"), self)
         
         self.current_folder_path = ""
         
@@ -86,7 +93,7 @@ class MainWindowWorkspace(QMainWindow):
         menubar.clear()
         
         # 2. Re-read UI native actions if Qt Designer drops them on clean clear routines
-        uic.loadUi("main.ui", self)
+        uic.loadUi(resource_path("main.ui"), self)
         
         # 3. FIX: Re-bind all python signals to the brand new UI objects instantly
         self.connect_ui_signals()
@@ -413,7 +420,7 @@ class MainWindowWorkspace(QMainWindow):
 class WelcomeSplashDialog(QDialog):
     def __init__(self):
         super().__init__()
-        uic.loadUi("info.ui", self)
+        uic.loadUi(resource_path("info.ui"), self)
         self.btn_start.clicked.connect(self.launch_main_workspace)
         self.btn_quit.clicked.connect(self.close)
         self.main_workspace = None
