@@ -17,7 +17,7 @@ from mutagen.mp4 import MP4
 from PyQt6.QtWidgets import QProgressBar
       # Force the script to look at its own source directory for storage
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-
+CURRENT_VERSION = "1.0.0"  # Increment this whenever you push a new release executable
         # Update your folder creation line to look like this:
 os.makedirs(os.path.join(BASE_DIR, "plugins"), exist_ok=True)
 
@@ -48,12 +48,69 @@ class MainWindowWorkspace(QMainWindow):
             self.actionsettings.triggered.connect(self.open_plugin_settings)
         elif hasattr(self, "actionSettings"):
             self.actionSettings.triggered.connect(self.open_plugin_settings)
-
+        # Connect the Refresh and Update actions
+        if hasattr(self, "btn_refresh_2"):
+            self.btn_refresh_2.clicked.connect(self.refresh_workspace)
+            
+        if hasattr(self, "btn_check_update_2"):
+            self.btn_check_update_2.clicked.connect(self.check_for_application_updates)
         # Create local storage directory for downloads if it doesn't exist
         os.makedirs("plugins", exist_ok=True)
         self.load_enabled_plugins()
         # Connect the select button
         self.btn_select.clicked.connect(self.display_file_metadata)
+    def refresh_workspace(self):
+        """Clears old menu instances and dynamically updates current directory logs."""
+        # 1. Clear any previously generated dynamic plugin menus
+        menubar = self.menuBar()
+        menubar.clear()
+        
+        # 2. Re-read UI native actions if Qt Designer drops them on clean clear routines
+        uic.loadUi("main.ui", self)
+        
+        # 3. Reload dynamic plugin configurations cleanly on the fly
+        self.load_enabled_plugins()
+        
+        # 4. Refresh target folder files list if a directory tracking loop is active
+        if self.current_folder_path:
+            self.list_files.clear()
+            try:
+                for item in os.listdir(self.current_folder_path):
+                    self.list_files.addItem(item)
+                self.text_metadata.setText("[+] Workspace views and components refreshed successfully.")
+            except Exception as e:
+                self.text_metadata.setText(f"[-] Refresh folder failed: {str(e)}")
+        else:
+            self.text_metadata.setText("[+] Plugin layout registries re-cached.")
+
+    def check_for_application_updates(self):
+        """Fetches the version tag from GitHub and handles text/styles safely for both Buttons and Menu Actions."""
+        target_btn = getattr(self, "btn_check_update", None)
+        if not target_btn:
+            return
+            
+        url = "https://raw.githubusercontent.com/lmcteam206/foren/main/version.txt"
+        try:
+            req = urllib.request.Request(url, headers={'User-Agent': 'Mozilla/5.0'})
+            with urllib.request.urlopen(req, timeout=5) as response:
+                remote_version = response.read().decode('utf-8').strip()
+                
+            if remote_version == CURRENT_VERSION:
+                status_text = f"✓ Latest Version ({CURRENT_VERSION})"
+                target_btn.setText(status_text)
+                # Apply color styling only if it's a real button widget
+                if hasattr(target_btn, "setStyleSheet"):
+                    target_btn.setStyleSheet("background-color: #28a745; color: white; font-weight: bold; border-radius: 4px; padding: 5px;")
+            else:
+                status_text = f"⚠ Update Available ({remote_version})"
+                target_btn.setText(status_text)
+                if hasattr(target_btn, "setStyleSheet"):
+                    target_btn.setStyleSheet("background-color: #d9534f; color: white; font-weight: bold; border-radius: 4px; padding: 5px;")
+                    
+        except Exception as e:
+            target_btn.setText("Update Check Failed (404 / Timeout)")
+            if hasattr(target_btn, "setStyleSheet"):
+                target_btn.setStyleSheet("background-color: #ffc107; color: black; padding: 5px;")
     def open_plugin_store(self):
         self.store_win = PluginStoreWindow(self)
         self.store_win.exec()
@@ -421,7 +478,8 @@ class PluginStoreWindow(QDialog):
         self.github_user = "lmcteam206"
         self.github_repo = "foren"
         # URL pointing to your online central index file
-        self.registry_url = f"https://raw.githubusercontent.com/{self.github_user}/{self.github_repo}/main/plugins_registry.json"
+        # Change this line inside your PluginStoreWindow.__init__ method:
+        self.registry_url = f"https://raw.githubusercontent.com/{self.github_user}/{self.github_repo}/main/plugins/plugins_registry.json"
         
         layout = QVBoxLayout(self)
         label = QLabel("### Available Community Plugins Marketplace ###")
@@ -485,7 +543,7 @@ class PluginStoreWindow(QDialog):
             card_layout.addWidget(desc)
             card_layout.addWidget(files)
             card_layout.addWidget(btn_install)
-            card_layout.addWidget(pb)
+            card_layout.addWidget(progress_bar)
             self.scroll_layout.addWidget(card)
 
     def download_package(self, item, target_btn, progress_bar):
