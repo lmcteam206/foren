@@ -1,8 +1,0 @@
-[
-    {
-        "id": "calculator",
-        "title": "Forensic Calculator",
-        "desc": "A lightweight standalone calculator utility integrated directly into the workspace layout.",
-        "files": ["calculator.py", "calculator.ui"]
-    }
-]
