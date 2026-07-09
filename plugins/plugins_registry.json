@@ -7,5 +7,13 @@
             "calculator.py",
             "calculator.ui"
         ]
+    },
+    {
+        "id": "whatsapp_viewer",
+        "title": "WhatsApp Database Parser",
+        "desc": "Parses Android or iOS WhatsApp databases and displays records back inside a clean bubble conversation format.",
+        "files": [
+            "whatsapp_viewer.py"
+        ]
     }
 ]
