@@ -1,6 +1,6 @@
 {
     "calculator": {
         "title": "Forensic Calculator",
-        "enabled": false
+        "enabled": true
     }
 }

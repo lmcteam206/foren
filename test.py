@@ -14,6 +14,12 @@ from PIL import Image
 from PIL.ExifTags import TAGS, GPSTAGS
 from mutagen.mp3 import MP3
 from mutagen.mp4 import MP4
+from PyQt6.QtWidgets import QProgressBar
+      # Force the script to look at its own source directory for storage
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+
+        # Update your folder creation line to look like this:
+os.makedirs(os.path.join(BASE_DIR, "plugins"), exist_ok=True)
 
 class MainWindowWorkspace(QMainWindow):
     def __init__(self):
@@ -410,36 +416,47 @@ class PluginStoreWindow(QDialog):
         self.setWindowTitle("Forensic Plugin Registry Store")
         self.resize(550, 450)
         self.setStyleSheet("background-color: #1e1e1e; color: #ffffff;")
+  
+        # --- CONFIGURATION MATCHING YOUR REPOSITORY ---
+        self.github_user = "lmcteam206"
+        self.github_repo = "foren"
+        # URL pointing to your online central index file
+        self.registry_url = f"https://raw.githubusercontent.com/{self.github_user}/{self.github_repo}/main/plugins_registry.json"
         
         layout = QVBoxLayout(self)
         label = QLabel("### Available Community Plugins Marketplace ###")
         label.setTextFormat(Qt.TextFormat.MarkdownText)
         layout.addWidget(label)
 
-        # Scroll window layer for card management
         scroll = QScrollArea()
         scroll.setWidgetResizable(True)
         scroll_content = QWidget()
         self.scroll_layout = QVBoxLayout(scroll_content)
         
-        # --- CREATOR REGISTRY (Your GitHub Database Configuration Mapping) ---
-        # Put your GitHub Raw file target paths inside these dictionary arrays
-        self.remote_plugins = [
-            {
-                "id": "hash_verifier",
-                "title": "SHA256 Integrity Engine",
-                "desc": "Computes data fingerprints to protect asset chain-of-custody tracking.",
-                "files": "hash_verifier.py, hash_verifier.ui",
-                "py_url": "https://raw.githubusercontent.com/YOUR_USER/YOUR_REPO/main/plugins/hash_verifier/hash_verifier.py",
-                "ui_url": "https://raw.githubusercontent.com/YOUR_USER/YOUR_REPO/main/plugins/hash_verifier/hash_verifier.ui"
-            }
-        ]
-
+        self.remote_plugins = []
+        # Fetch the registry live from GitHub instead of hardcoding
+        self.fetch_remote_registry()
+        
         self.populate_marketplace()
         scroll.setWidget(scroll_content)
         layout.addWidget(scroll)
 
+    def fetch_remote_registry(self):
+        """Downloads the central plugins database file on the fly."""
+        try:
+            with urllib.request.urlopen(self.registry_url) as response:
+                self.remote_plugins = json.loads(response.read().decode())
+        except Exception as e:
+            print(f"[-] Failed to fetch remote plugins manifest index: {str(e)}")
+            # Fallback placeholder card if network or repository structure resolution fails
+            self.remote_plugins = []
+
     def populate_marketplace(self):
+        if not self.remote_plugins:
+            error_lbl = QLabel("<font color='#d9534f'>[-] Unable to load store catalog. Check connection or registry.json path.</font>")
+            self.scroll_layout.addWidget(error_lbl)
+            return
+
         for item in self.remote_plugins:
             card = QWidget()
             card.setStyleSheet("background-color: #2d2d2d; border-radius: 6px; padding: 10px; margin-bottom: 5px;")
@@ -448,29 +465,62 @@ class PluginStoreWindow(QDialog):
             title = QLabel(f"<b>{item['title']}</b>")
             desc = QLabel(item['desc'])
             desc.setWordWrap(True)
-            files = QLabel(f"<font color='#888888'>Assets: {item['files']}</font>")
+            
+            # Format list array to human-readable string text
+            files_str = ", ".join(item["files"])
+            files = QLabel(f"<font color='#888888'>Assets to fetch: {files_str}</font>")
             
             btn_install = QPushButton("Install Plugin Package")
             btn_install.setStyleSheet("background-color: #007acc; font-weight: bold; padding: 5px;")
-            btn_install.clicked.connect(lambda checked, i=item: self.download_package(i))
+            
+            # Hidden track parameters embedded to help track local component instances later
+            progress_bar = QProgressBar()
+            progress_bar.setStyleSheet("QProgressBar { background-color: #1e1e1e; border-radius: 4px; text-align: center; } QProgressBar::chunk { background-color: #28a745; }")
+            progress_bar.setVisible(False)
+
+            # Link action passing along its own visual cards and controls
+            btn_install.clicked.connect(lambda checked, i=item, btn=btn_install, pb=progress_bar: self.download_package(i, btn, pb))
 
             card_layout.addWidget(title)
             card_layout.addWidget(desc)
             card_layout.addWidget(files)
             card_layout.addWidget(btn_install)
+            card_layout.addWidget(pb)
             self.scroll_layout.addWidget(card)
 
-    def download_package(self, item):
+    def download_package(self, item, target_btn, progress_bar):
         try:
+            target_btn.setEnabled(False)
+            progress_bar.setVisible(True)
+            progress_bar.setValue(0)
+            
             dest_dir = os.path.join("plugins", item["id"])
             os.makedirs(dest_dir, exist_ok=True)
 
-            # Pull scripts directly down from your specified GitHub raw architecture links
-            urllib.request.urlretrieve(item["py_url"], os.path.join(dest_dir, f"{item['id']}.py"))
-            urllib.request.urlretrieve(item["ui_url"], os.path.join(dest_dir, f"{item['id']}.ui"))
+            total_files = len(item["files"])
+            
+            for idx, filename in enumerate(item["files"], start=1):
+                # Dynamically construct target remote paths matching repository file configurations
+                remote_file_url = f"https://raw.githubusercontent.com/{self.github_user}/{self.github_repo}/main/plugins/{item['id']}/{filename}"
+                local_save_path = os.path.join(dest_dir, filename)
+                
+                # Fetch asset from GitHub
+                urllib.request.urlretrieve(remote_file_url, local_save_path)
+                
+                # Calculate and update progression
+                percentage = int((idx / total_files) * 100)
+                progress_bar.setValue(percentage)
+                progress_bar.setFormat(f"Downloaded {filename} ({percentage}%)")
+                
+                # Process window updates safely between execution phases
+                QApplication.processEvents()
 
-            # Update master registry layout database tracking file
-            config_path = os.path.join("plugins", "config.json")
+            # Force the download path to stick to your script's home folder
+            dest_dir = os.path.join(BASE_DIR, "plugins", item["id"])
+            os.makedirs(dest_dir, exist_ok=True)
+
+            # And update the config path matching it:
+            config_path = os.path.join(BASE_DIR, "plugins", "config.json")
             config = {}
             if os.path.exists(config_path):
                 with open(config_path, "r") as f:
@@ -480,10 +530,12 @@ class PluginStoreWindow(QDialog):
             with open(config_path, "w") as f:
                 json.dump(config, f, indent=4)
 
-            QPushButton(self.sender()).setText("✓ Installed Successfully")
+            target_btn.setText("✓ Installed Successfully")
+            progress_bar.setFormat("Complete!")
         except Exception as e:
-            QPushButton(self.sender()).setText(f"Error: Unable to Pull Build")
-
+            target_btn.setEnabled(True)
+            target_btn.setText("Retry Installation")
+            progress_bar.setFormat(f"Extraction Failure: {str(e)}")
 
 class PluginSettingsWindow(QDialog):
     def __init__(self, parent=None):
@@ -526,6 +578,7 @@ class PluginSettingsWindow(QDialog):
             with open(self.config_path, "w") as f:
                 json.dump(self.config, f, indent=4)
         self.accept()
+
 if __name__ == "__main__":
     app = QApplication(sys.argv)
     
