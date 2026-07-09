@@ -163,7 +163,7 @@ class TimelineExplorerDialog(QDialog):
 
                 # Append visualization entry items
                 item = QListWidgetItem(f"🕒 [{time_str}] - {app_name}")
-                item.setData(Qt.ItemData.UserRole, {
+                item.setData(Qt.ItemDataRole.UserRole, {
                     "app_id": app_id_raw,
                     "start": start_time,
                     "end": end_time,
