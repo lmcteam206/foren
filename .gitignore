@@ -30,4 +30,3 @@ env/
 # Since users download plugins straight to AppData, your local 
 # workplace folder shouldn't tracking your personal test run configs.
 /plugins/config.json
-/plugins/calculator/
