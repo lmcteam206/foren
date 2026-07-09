@@ -86,9 +86,9 @@
    <widget class="QPushButton" name="btn_refresh_2">
     <property name="geometry">
      <rect>
-      <x>964</x>
+      <x>904</x>
       <y>0</y>
-      <width>121</width>
+      <width>181</width>
       <height>24</height>
      </rect>
     </property>
@@ -99,14 +99,27 @@
    <widget class="QPushButton" name="btn_check_update_2">
     <property name="geometry">
      <rect>
-      <x>964</x>
+      <x>904</x>
       <y>30</y>
-      <width>121</width>
-      <height>24</height>
+      <width>181</width>
+      <height>61</height>
      </rect>
     </property>
     <property name="text">
      <string>check for updates</string>
+    </property>
+   </widget>
+   <widget class="QLabel" name="lbl_version">
+    <property name="geometry">
+     <rect>
+      <x>10</x>
+      <y>785</y>
+      <width>521</width>
+      <height>21</height>
+     </rect>
+    </property>
+    <property name="text">
+     <string>Version</string>
     </property>
    </widget>
   </widget>
