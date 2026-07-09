@@ -177,7 +177,7 @@ class TimelineExplorerDialog(QDialog):
             self.lbl_status.setText(f"Failed to read file targets: {str(e)}")
 
     def display_event_details(self, item):
-        data = item.data(Qt.ItemData.UserRole)
+        data = item.data(Qt.ItemDataRole.UserRole)
         if not data:
             return
 
