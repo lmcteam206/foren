@@ -71,5 +71,17 @@
         "files": [
             "appcompat_parser.py"
         ]
+    },
+    {
+        "id": "event_log_parser",
+        "title": "Windows Event Log Timeline Parser",
+        "desc": "Extracts account authentication records (ID 4624) and intercepts PowerShell script block string arrays (ID 4104) directly out of system log structures.",
+        "version": "1.0.0",
+        "features": ["Non-destructive stream backup decoding tracking", "Standalone zero-dependency structural regex mining"],
+        "cons": ["Caps entry views tracking limits to verify responsive interface UI frame updates"],
+        "warning": "Clearing Event Log files manually will wipe historical timelines from the logging subsystem.",
+        "files": [
+            "event_log_parser.py"
+        ]
     }
 ]
