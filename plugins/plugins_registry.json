@@ -35,5 +35,17 @@
         "files": [
             "timeline_explorer.py"
         ]
+    },
+    {
+        "id": "browser_history_viewer",
+        "title": "Browser History & Session Carver",
+        "desc": "Collects history streams across Chrome, Edge, and Brave. Attempts to carve deleted logs directly out of persistent SNSS binary logs.",
+        "version": "1.0.0",
+        "features": ["Bypasses runtime locks with structural shadow caching", "Extracts deleted browsing sessions directly via regex carvers"],
+        "cons": ["Cannot parse records if the disk blocks have been explicitly defragmented or completely overwritten"],
+        "warning": "Ensure strict authorization is confirmed before analyzing local profile folders to comply with evidentiary constraints.",
+        "files": [
+            "browser_history_viewer.py"
+        ]
     }
 ]

@@ -16,6 +16,8 @@ from mutagen.mp3 import MP3
 from mutagen.mp4 import MP4
 from PyQt6.QtWidgets import QProgressBar
 
+develmponet = False
+
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 CURRENT_VERSION = "1.0.0"  # Increment this whenever you push a new release executable
 
@@ -27,9 +29,16 @@ def resource_path(relative_path):
         base_path = os.path.dirname(os.path.abspath(__file__))
     return os.path.join(base_path, relative_path)
 
-# --- ROUTE PLUGINS TO WINDOWS HIDDEN APPDATA ---
-APPDATA_DIR = os.path.join(os.environ.get("APPDATA", os.path.expanduser("~")), "ForensicWorkspace")
-os.makedirs(os.path.join(APPDATA_DIR, "plugins"), exist_ok=True)
+# --- ROUTE PLUGINS BASED ON DEVELOPMENT FLAG ---
+if develmponet:
+    # Use local 'plugins' folder in the application directory
+    ACTIVE_PLUGINS_DIR = os.path.join(BASE_DIR, "plugins")
+else:
+    # Fallback to standard AppData target
+    APPDATA_DIR = os.path.join(os.environ.get("APPDATA", os.path.expanduser("~")), "ForensicWorkspace")
+    ACTIVE_PLUGINS_DIR = os.path.join(APPDATA_DIR, "plugins")
+
+os.makedirs(ACTIVE_PLUGINS_DIR, exist_ok=True)
 
 class MainWindowWorkspace(QMainWindow):
     def __init__(self):
@@ -37,7 +46,7 @@ class MainWindowWorkspace(QMainWindow):
         uic.loadUi(resource_path("main.ui"), self)
         self.current_folder_path = ""
         self.connect_ui_signals()
-        os.makedirs(os.path.join(APPDATA_DIR, "plugins"), exist_ok=True)
+        os.makedirs(ACTIVE_PLUGINS_DIR, exist_ok=True)
         self.load_enabled_plugins()
 
     def connect_ui_signals(self):
@@ -125,7 +134,7 @@ class MainWindowWorkspace(QMainWindow):
 
     def load_enabled_plugins(self):
         """Discovers downloaded plugins and executes them if enabled inside settings."""
-        config_path = os.path.join(APPDATA_DIR, "plugins", "config.json")
+        config_path = os.path.join(ACTIVE_PLUGINS_DIR, "config.json")
         if not os.path.exists(config_path):
             return
             
@@ -134,7 +143,7 @@ class MainWindowWorkspace(QMainWindow):
 
         for plugin_name, data in config.items():
             if data.get("enabled", False):
-                script_path = os.path.join(APPDATA_DIR, "plugins", plugin_name, f"{plugin_name}.py")
+                script_path = os.path.join(ACTIVE_PLUGINS_DIR, plugin_name, f"{plugin_name}.py")
                 if os.path.exists(script_path):
                     menu = self.menuBar().addMenu(data.get("title", plugin_name))
                     action = menu.addAction("Launch Core Utility")
@@ -334,7 +343,7 @@ class PluginStoreWindow(QDialog):
         layout.addWidget(scroll)
 
     def load_local_config(self):
-        config_path = os.path.join(APPDATA_DIR, "plugins", "config.json")
+        config_path = os.path.join(ACTIVE_PLUGINS_DIR, "config.json")
         if os.path.exists(config_path):
             try:
                 with open(config_path, "r") as f:
@@ -437,7 +446,7 @@ class PluginStoreWindow(QDialog):
             progress_bar.setVisible(True)
             progress_bar.setValue(0)
             
-            dest_dir = os.path.join(APPDATA_DIR, "plugins", item["id"])
+            dest_dir = os.path.join(ACTIVE_PLUGINS_DIR, item["id"])
             os.makedirs(dest_dir, exist_ok=True)
             total_files = len(item["files"])
             
@@ -451,7 +460,7 @@ class PluginStoreWindow(QDialog):
                 progress_bar.setValue(percentage)
                 QApplication.processEvents()
 
-            config_path = os.path.join(APPDATA_DIR, "plugins", "config.json")
+            config_path = os.path.join(ACTIVE_PLUGINS_DIR, "config.json")
             config = {}
             if os.path.exists(config_path):
                 with open(config_path, "r") as f:
@@ -483,7 +492,7 @@ class PluginSettingsWindow(QDialog):
         self.layout = QVBoxLayout(self)
         self.layout.addWidget(QLabel("<h3>Enable/Disable Installed Systems</h3>"))
         
-        self.config_path = os.path.join(APPDATA_DIR, "plugins", "config.json")
+        self.config_path = os.path.join(ACTIVE_PLUGINS_DIR, "config.json")
         self.check_boxes = {}
         self.load_settings_list()
         
