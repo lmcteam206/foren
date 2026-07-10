@@ -82,18 +82,27 @@ class BrowserHistoryDialog(QDialog):
 
     def get_browser_paths(self):
         local_appdata = os.environ.get("LOCALAPPDATA", "")
+        appdata_roaming = os.environ.get("APPDATA", "")
+        
         return {
             "Google Chrome": {
+                "engine": "chromium",
                 "history": os.path.join(local_appdata, r"Google\Chrome\User Data\Default\History"),
                 "sessions": os.path.join(local_appdata, r"Google\Chrome\User Data\Default\Sessions")
             },
             "Microsoft Edge": {
+                "engine": "chromium",
                 "history": os.path.join(local_appdata, r"Microsoft\Edge\User Data\Default\History"),
                 "sessions": os.path.join(local_appdata, r"Microsoft\Edge\User Data\Default\Sessions")
             },
             "Brave Browser": {
+                "engine": "chromium",
                 "history": os.path.join(local_appdata, r"BraveSoftware\Brave-Browser\User Data\Default\History"),
                 "sessions": os.path.join(local_appdata, r"BraveSoftware\Brave-Browser\User Data\Default\Sessions")
+            },
+            "Mozilla Firefox": {
+                "engine": "firefox",
+                "profiles_base": os.path.join(appdata_roaming, r"Mozilla\Firefox\Profiles")
             }
         }
 
@@ -106,32 +115,50 @@ class BrowserHistoryDialog(QDialog):
         carved_records = 0
         
         for browser_name, target_paths in paths.items():
-            # 1. Parse active live log files
-            if os.path.exists(target_paths["history"]):
-                temp_copy = os.path.join(TEMP_EXTRACT_DIR, f"{browser_name}_History")
-                try:
-                    shutil.copy2(target_paths["history"], temp_copy)
-                    records = self.parse_history_db(temp_copy, browser_name)
-                    active_records += len(records)
-                except Exception as e:
-                    print(f"[-] Safe backup allocation bypassed for {browser_name}: {str(e)}")
+            # --- CHROMIUM ENGINE PARSING TRACK ---
+            if target_paths.get("engine") == "chromium":
+                if os.path.exists(target_paths["history"]):
+                    temp_copy = os.path.join(TEMP_EXTRACT_DIR, f"{browser_name}_History")
+                    try:
+                        shutil.copy2(target_paths["history"], temp_copy)
+                        records = self.parse_history_db(temp_copy, browser_name)
+                        active_records += len(records)
+                    except Exception as e:
+                        print(f"[-] Safe backup allocation bypassed for {browser_name}: {str(e)}")
 
-            # 2. Carve deleted records out of unpurged session SNSS files
-            if os.path.exists(target_paths["sessions"]):
-                try:
-                    for file in os.listdir(target_paths["sessions"]):
-                        if file.startswith(("Session_", "Tabs_")):
-                            full_path = os.path.join(target_paths["sessions"], file)
-                            urls_carved = self.carve_snss_session_file(full_path)
-                            for url in urls_carved:
-                                row = self.deleted_table.rowCount()
-                                self.deleted_table.insertRow(row)
-                                self.deleted_table.setItem(row, 0, QTableWidgetItem(f"{browser_name} ({file})"))
-                                self.deleted_table.setItem(row, 1, QTableWidgetItem(url))
-                                self.deleted_table.setItem(row, 2, QTableWidgetItem("Persistent Open Session Segment"))
-                                carved_records += 1
-                except Exception as e:
-                    print(f"[-] Session parsing failed for {browser_name}: {str(e)}")
+                if os.path.exists(target_paths["sessions"]):
+                    try:
+                        for file in os.listdir(target_paths["sessions"]):
+                            if file.startswith(("Session_", "Tabs_")):
+                                full_path = os.path.join(target_paths["sessions"], file)
+                                urls_carved = self.carve_snss_session_file(full_path)
+                                for url in urls_carved:
+                                    row = self.deleted_table.rowCount()
+                                    self.deleted_table.insertRow(row)
+                                    self.deleted_table.setItem(row, 0, QTableWidgetItem(f"{browser_name} ({file})"))
+                                    self.deleted_table.setItem(row, 1, QTableWidgetItem(url))
+                                    self.deleted_table.setItem(row, 2, QTableWidgetItem("Persistent Open Session Segment"))
+                                    carved_records += 1
+                    except Exception as e:
+                        print(f"[-] Session parsing failed for {browser_name}: {str(e)}")
+
+            # --- FIREFOX ENGINE PARSING TRACK ---
+            elif target_paths.get("engine") == "firefox":
+                base_dir = target_paths["profiles_base"]
+                if os.path.exists(base_dir):
+                    try:
+                        # Firefox uses randomized profile folder directories
+                        for profile_folder in os.listdir(base_dir):
+                            potential_history_file = os.path.join(base_dir, profile_folder, "places.sqlite")
+                            if os.path.exists(potential_history_file):
+                                temp_copy = os.path.join(TEMP_EXTRACT_DIR, f"{browser_name}_{profile_folder}_places")
+                                shutil.copy2(potential_history_file, temp_copy)
+                                
+                                # Use a safe sub-call to handle Firefox SQL structure variations
+                                records = self.parse_firefox_db(temp_copy, browser_name)
+                                active_records += len(records)
+                    except Exception as e:
+                        print(f"[-] Firefox runtime parsing engine bypassed: {str(e)}")
                     
         self.history_table.sortItems(0, Qt.SortOrder.DescendingOrder)
         self.lbl_status.setText(f"Analysis Complete. Found {active_records} active entries and {carved_records} carved session artifacts.")
@@ -164,7 +191,38 @@ class BrowserHistoryDialog(QDialog):
         except Exception as e:
             print(f"[-] SQLite execution skipped on path index: {str(e)}")
         return entries
-
+    def parse_firefox_db(self, db_path, browser_name):
+        entries = []
+        try:
+            conn = sqlite3.connect(db_path)
+            cursor = conn.cursor()
+            # Firefox stores history dates as microseconds since Unix Epoch
+            cursor.execute("""
+                SELECT last_visit_date, title, url 
+                FROM moz_places 
+                WHERE last_visit_date IS NOT NULL 
+                ORDER BY last_visit_date DESC
+            """)
+            
+            for row in cursor.fetchall():
+                v_time, title, url = row
+                # Convert Firefox timestamp (Microseconds to Seconds epoch conversion)
+                try:
+                    readable_time = datetime.fromtimestamp(v_time / 1000000).strftime('%Y-%m-%d %H:%M:%S')
+                except Exception:
+                    readable_time = str(v_time)
+                
+                row_idx = self.history_table.rowCount()
+                self.history_table.insertRow(row_idx)
+                self.history_table.setItem(row_idx, 0, QTableWidgetItem(readable_time))
+                self.history_table.setItem(row_idx, 1, QTableWidgetItem(browser_name))
+                self.history_table.setItem(row_idx, 2, QTableWidgetItem(title if title else "[No Title Passed]"))
+                self.history_table.setItem(row_idx, 3, QTableWidgetItem(url))
+                entries.append(url)
+            conn.close()
+        except Exception as e:
+            print(f"[-] Firefox SQL structural read error: {str(e)}")
+        return entries
     def carve_snss_session_file(self, file_path):
         """Extracts ASCII/UTF-8 URL signatures directly from raw binary blocks."""
         found_urls = set()
