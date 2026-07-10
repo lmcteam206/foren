@@ -16,7 +16,7 @@ from mutagen.mp3 import MP3
 from mutagen.mp4 import MP4
 from PyQt6.QtWidgets import QProgressBar
 
-develmponet = False
+develmponet = True
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 CURRENT_VERSION = "1.0.0"  # Increment this whenever you push a new release executable

@@ -59,5 +59,17 @@
         "files": [
             "memory_carver.py"
         ]
+    },
+    {
+        "id": "appcompat_parser",
+        "title": "Application Compatibility Cache Parser",
+        "desc": "Extracts process footprint records across ShimCache registry streams and Amcache hive tracks to verify the historical presence of executed files.",
+        "version": "1.0.0",
+        "features": ["Dual extraction modules checking volatile and non-volatile registers", "SHA-1 cryptographic signature profiling for binary verification"],
+        "cons": ["Relies on internal text/binary patterns mining loops for standalone portable deployments"],
+        "warning": "ShimCache entries track process execution configurations primarily upon operational system shutdown states.",
+        "files": [
+            "appcompat_parser.py"
+        ]
     }
 ]
