@@ -47,5 +47,17 @@
         "files": [
             "browser_history_viewer.py"
         ]
+    },
+    {
+        "id": "memory_carver",
+        "title": "Volatile Memory Data Carver",
+        "desc": "Automates lookups inside Windows crash minidumps and carves raw ASCII/UTF-16 text arrays out of volatile RAM images to pull back fileless traces.",
+        "version": "1.0.0",
+        "features": ["Zero external system dependency tracking", "Dual-encoding string array carvers targeting darkweb onion configurations"],
+        "cons": ["Caps scanning sequences to primary file blocks to preserve responsive UI execution runtimes"],
+        "warning": "Volatile memory structures alter content states completely upon hardware shutdown sequences.",
+        "files": [
+            "memory_carver.py"
+        ]
     }
 ]
